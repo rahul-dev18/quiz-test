@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aster
+      POSTGRES_USER: aster
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment before starting Compose}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aster -d aster"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  api:
+    build: ./backend
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://aster:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment before starting Compose}@db:5432/aster
+      JWT_SECRET: ${JWT_SECRET:?Set a unique JWT_SECRET (at least 32 characters) before starting Compose}
+      ALLOWED_ORIGINS: http://localhost:3000
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      MAX_UPLOAD_BYTES: 10485760
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+volumes:
+  postgres_data:
